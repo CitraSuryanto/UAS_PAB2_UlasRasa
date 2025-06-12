@@ -16,12 +16,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<DocumentSnapshot> resto = [];
+  List<DocumentSnapshot> filteredResto = [];
   String? bannerUrl;
   String? userName;
-  String? userRole; // To store the user role
+  String? userRole;
+  String searchQuery = "";
   final double cardHeight = 200;
 
-  int _selectedIndex = 0; // Index for BottomNavigationBar
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -32,16 +34,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchResto() async {
-    QuerySnapshot snapshot =
-    await FirebaseFirestore.instance.collection('resto').get();
+    QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('resto').get();
     setState(() {
       resto = snapshot.docs;
+      filteredResto = resto;
     });
   }
 
   Future<void> fetchBanner() async {
-    QuerySnapshot snapshot =
-    await FirebaseFirestore.instance.collection('banners').get();
+    QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('banners').get();
     if (snapshot.docs.isNotEmpty) {
       setState(() {
         bannerUrl = snapshot.docs.first['url'];
@@ -62,16 +63,27 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
+  void _filterResto(String query) {
+    final lowerQuery = query.toLowerCase();
+    setState(() {
+      searchQuery = query;
+      filteredResto = resto.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final name = (data['name'] ?? '').toString().toLowerCase();
+        final address = (data['address'] ?? '').toString().toLowerCase();
+        return name.contains(lowerQuery) || address.contains(lowerQuery);
+      }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Pages for BottomNavigationBar
     final List<Widget> _pages = [
       buildHomeContent(),
       FavoritesPage(userId: widget.userId),
@@ -86,7 +98,7 @@ class _HomePageState extends State<HomePage> {
         ),
         backgroundColor: Colors.blueAccent,
         actions: [
-          if (userRole == 'admin') // Show Add Icon if the user is an admin
+          if (userRole == 'admin')
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () {
@@ -123,7 +135,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Widget for Home Content
   Widget buildHomeContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,6 +149,20 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: TextField(
+            onChanged: _filterResto,
+            decoration: InputDecoration(
+              hintText: 'Cari restoran berdasarkan nama atau alamat...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         if (bannerUrl != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -153,25 +178,23 @@ class _HomePageState extends State<HomePage> {
           ),
         const SizedBox(height: 16),
         Expanded(
-          child: resto.isEmpty
-              ? const Center(child: CircularProgressIndicator())
+          child: filteredResto.isEmpty
+              ? const Center(child: Text('Tidak ada restoran yang ditemukan.'))
               : ListView.builder(
-            itemCount: resto.length,
+            itemCount: filteredResto.length,
             itemBuilder: (context, index) {
-              var restos = resto[index].data() as Map<String, dynamic>;
+              var restos = filteredResto[index].data() as Map<String, dynamic>;
               return GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          RestoDetailPage(resto: resto[index]),
+                      builder: (context) => RestoDetailPage(resto: filteredResto[index]),
                     ),
                   );
                 },
                 child: Card(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                  margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   elevation: 4,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.0),
@@ -184,7 +207,7 @@ class _HomePageState extends State<HomePage> {
                           bottomLeft: Radius.circular(12.0),
                         ),
                         child: Image.network(
-                          restos['image'] , // URL of hotel image
+                          restos['image'] ?? 'https://via.placeholder.com/150',
                           height: cardHeight,
                           width: cardHeight,
                           fit: BoxFit.cover,
@@ -205,25 +228,18 @@ class _HomePageState extends State<HomePage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                restos['description'] ??
-                                    'Deskripsi tidak tersedia',
+                                restos['description'] ?? 'Deskripsi tidak tersedia',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                ),
+                                style: TextStyle(color: Colors.grey[600]),
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  const Icon(
-                                    Icons.star,
-                                    color: Colors.orange,
-                                    size: 18,
-                                  ),
+                                  const Icon(Icons.star, color: Colors.orange, size: 18),
                                   const SizedBox(width: 4),
                                   FutureBuilder<double>(
-                                    future: calculateAverageRating(resto[index].id.toString()),
+                                    future: calculateAverageRating(filteredResto[index].id),
                                     builder: (context, snapshot) {
                                       if (snapshot.connectionState == ConnectionState.waiting) {
                                         return const Text('Loading...');
@@ -232,9 +248,7 @@ class _HomePageState extends State<HomePage> {
                                       } else {
                                         return Text(
                                           '${snapshot.data?.toStringAsFixed(1) ?? 'N/A'}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
                                         );
                                       }
                                     },
@@ -255,6 +269,7 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
+
   Future<double> calculateAverageRating(String restoId) async {
     QuerySnapshot commentsSnapshot = await FirebaseFirestore.instance
         .collection('resto')
@@ -262,15 +277,13 @@ class _HomePageState extends State<HomePage> {
         .collection('comments')
         .get();
 
-    if (commentsSnapshot.docs.isEmpty) {
-      return 0.0; // No comments, return 0
-    }
+    if (commentsSnapshot.docs.isEmpty) return 0.0;
 
     double totalRating = 0.0;
     for (var doc in commentsSnapshot.docs) {
-      totalRating += doc['rating'] ?? 0.0; // Assuming 'rating' field exists
+      totalRating += doc['rating'] ?? 0.0;
     }
 
-    return totalRating / commentsSnapshot.docs.length; // Calculate average
+    return totalRating / commentsSnapshot.docs.length;
   }
 }

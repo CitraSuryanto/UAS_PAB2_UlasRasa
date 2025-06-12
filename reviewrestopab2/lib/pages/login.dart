@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:reviewrestopab2/pages/homepage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,40 +14,51 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  bool _isLoading = false;
 
   Future<void> _login() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      // Authenticate user
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: _usernameController.text,
         password: _passwordController.text,
       );
 
-      // Fetch user role from Firestore
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('profile') // Collection name
-          .doc(userCredential.user!.uid) // Use the UID from the authenticated user
+          .collection('profile')
+          .doc(userCredential.user!.uid)
           .get();
 
-      // Check if the document exists
       if (userDoc.exists) {
         String role = userDoc['role'];
-        print('User role: $role');
+        String name = userDoc['name'] ?? 'Pengguna';
 
-        Navigator.pushReplacementNamed(context, '/home', arguments: role);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomePage(
+              userId: userCredential.user!.uid,
+              userRole: role,
+              userName: name,
+            ),
+          ),
+        );
       } else {
-        print('User profile does not exist in Firestore');
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('User profile not found. Please contact support.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User profile not found. Please contact support.')),
+        );
       }
     } catch (e) {
-      print('Error: $e');
-
-      // Display error message
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Login failed: ${e.toString()}'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -78,7 +90,7 @@ class _LoginPageState extends State<LoginPage> {
               TextField(
                 controller: _usernameController,
                 decoration: const InputDecoration(
-                  labelText: 'Username',
+                  labelText: 'Email',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -92,10 +104,14 @@ class _LoginPageState extends State<LoginPage> {
                 obscureText: true,
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
+              _isLoading
+                  ? const CircularProgressIndicator(
+                color: Colors.blue,
+              )
+                  : ElevatedButton(
                 onPressed: _login,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Fixed background color
+                  backgroundColor: Colors.blue,
                 ),
                 child: const Text('Masuk'),
               ),

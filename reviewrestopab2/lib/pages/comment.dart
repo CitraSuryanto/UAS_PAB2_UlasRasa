@@ -78,7 +78,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     if (_imageFile != null) {
       imageUrl = await _uploadImage(_imageFile!);
     } else {
-      imageUrl = 'https://via.placeholder.com/150'; // Placeholder image URL
+      imageUrl = 'https://placehold.co/150x150'; // Placeholder image URL
     }
 
     if (_commentController.text.isNotEmpty) {
@@ -236,7 +236,17 @@ class _CommentsSectionState extends State<CommentsSection> {
                         ),
                       ],
                     ),
-                    leading: Image.network(comment.thumbnail),
+                    leading: (comment.thumbnail.isNotEmpty && comment.thumbnail != 'NO_IMAGE')
+                        ? Image.network(
+                      comment.thumbnail,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                      },
+                    )
+                        : const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
                     trailing: isCurrentUserComment
                         ? Row(
                       mainAxisSize: MainAxisSize.min,

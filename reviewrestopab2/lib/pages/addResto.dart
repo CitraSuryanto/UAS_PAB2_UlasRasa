@@ -58,17 +58,22 @@ class _AddRestoPageState extends State<AddRestoPage> {
     }
   }
 
+  // Future<bool> _onWillPop() async {
+  //   Navigator.pushReplacementNamed(
+  //     context,
+  //     '/home',
+  //     arguments: {
+  //       'userRole': userRole,
+  //       'userId': userId,
+  //       'userName': userName,
+  //     },
+  //   );
+  //   return false;
+  // }
+
   Future<bool> _onWillPop() async {
-    Navigator.pushReplacementNamed(
-      context,
-      '/home',
-      arguments: {
-        'userRole': userRole,
-        'userId': userId,
-        'userName': userName,
-      },
-    );
-    return false; // jangan pop otomatis, karena sudah manual navigate
+    Navigator.of(context).pop();
+    return false;
   }
 
   @override

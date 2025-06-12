@@ -34,7 +34,14 @@ class MyApp extends StatelessWidget {
       ),
       home: AuthWrapper(),
       routes: {
-    // '/home': (context) => HomePage( userRole: '', userId: '', userName: '',),
+    '/home': (context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, String>;
+    return HomePage(
+    userRole: args['userRole'] ?? '',
+    userId: args['userId'] ?? '',
+    userName: args['userName'] ?? '',
+    );
+    },
         '/register': (context) => const RegisterPage(),
         '/login': (context) => const LoginPage(),
         '/addHotel' : (context) => AddRestoPage(),
